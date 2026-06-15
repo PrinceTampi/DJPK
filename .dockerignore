@@ -1,0 +1,14 @@
+.git
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.dockerignore
+*.db
+logs
+tests
+diff_details.txt
+diff_details_utf8.txt
+.env
+credentials/
