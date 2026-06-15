@@ -15,7 +15,7 @@ This repository contains a Python scraper for the DJPK APBD portal (`https://djp
 - Environment configuration is loaded from `.env` via `config/settings.py`.
 
 ## Important Notes
-- The `.env` file must define `GOOGLE_SHEET_ID`, `GOOGLE_CREDENTIAL_PATH`, and optionally `GOOGLE_WORKSHEET_NAME`.
+- The `.env` file must define `GOOGLE_SHEET_ID`, and either `GOOGLE_CREDENTIAL_PATH` or `GOOGLE_CREDENTIAL_PATH_B64`.
 - The project currently expects `GOOGLE_WORKSHEET_NAME`, not `GOOGLE_SHEET_NAME`.
 - The spreadsheet service now accepts either a raw sheet ID or a full Google Sheets URL.
 - The service account JSON file must have access to the spreadsheet.

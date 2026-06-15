@@ -10,6 +10,19 @@ PROVINCE_CODE = "18"
 DEFAULT_WORKSHEET = os.getenv("GOOGLE_WORKSHEET_NAME", "Sheet1")
 GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
 GOOGLE_CREDENTIAL_PATH = os.getenv("GOOGLE_CREDENTIAL_PATH")
+GOOGLE_CREDENTIAL_PATH_B64 = os.getenv("GOOGLE_CREDENTIAL_PATH_B64") or os.getenv("GOOGLE_CREDENTIAL_JSON_B64")
+
+if GOOGLE_CREDENTIAL_PATH_B64:
+    import base64
+    import tempfile
+
+    decoded = base64.b64decode(GOOGLE_CREDENTIAL_PATH_B64)
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
+    temp_file.write(decoded)
+    temp_file.flush()
+    temp_file.close()
+    GOOGLE_CREDENTIAL_PATH = temp_file.name
+
 FIXED_SHEET_HEADERS = [
     "Source.name",
     "Akun",
