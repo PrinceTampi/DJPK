@@ -83,15 +83,6 @@ class SpreadsheetService:
             last_column = chr(ord("A") + len(FIXED_SHEET_HEADERS) - 1)
             worksheet.update(f"A1:{last_column}1", [FIXED_SHEET_HEADERS], value_input_option="USER_ENTERED")
 
-    def _load_existing_rows(self, values: list) -> set:
-        if len(values) <= 1:
-            return set()
-
-        existing = set()
-        for row in values[1:]:
-            existing.add(tuple(str(cell).strip() for cell in row))
-        return existing
-
     def _expand_worksheet_rows(self, worksheet, extra_rows: int = ROW_EXPANSION_SIZE) -> None:
         try:
             self.logger.info(
@@ -117,26 +108,12 @@ class SpreadsheetService:
         values = self._load_worksheet_values(worksheet)
         self._ensure_headers(worksheet, values)
 
-        existing_rows = self._load_existing_rows(values)
-        filtered_rows = []
-        for row in rows:
-            row_key = tuple(str(cell).strip() for cell in row)
-            if row_key in existing_rows:
-                self.logger.info("Skipping duplicate row for worksheet %s: %s", worksheet.title, row_key)
-                continue
-            filtered_rows.append(row)
-            existing_rows.add(row_key)
-
-        if not filtered_rows:
-            self.logger.info("No new rows to append for worksheet %s", worksheet.title)
-            return
-
         for attempt in range(1, RETRY_COUNT + 1):
             try:
-                worksheet.append_rows(filtered_rows, value_input_option="USER_ENTERED")
+                worksheet.append_rows(rows, value_input_option="USER_ENTERED")
                 self.logger.info(
                     "upload success: %d rows appended to worksheet %s",
-                    len(filtered_rows),
+                    len(rows),
                     worksheet.title,
                 )
                 return

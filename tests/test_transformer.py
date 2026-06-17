@@ -13,6 +13,16 @@ class TransformerTests(unittest.TestCase):
         self.assertEqual(parse_percentage("30.43"), 30.43)
         self.assertEqual(parse_percentage("0"), 0.0)
         self.assertEqual(parse_percentage("110.5"), 110.5)
+        self.assertEqual(parse_percentage(""), 0.0)
+        self.assertEqual(parse_percentage("-"), 0.0)
+
+    def test_build_record_missing_numeric_values(self):
+        raw_row = ["", "Pendapatan Daerah", "", "", ""]
+        record = build_record("Kota Manado", "2026_06csv", "2026-06-07", raw_row)
+
+        self.assertEqual(record["anggaran_M"], 0.0)
+        self.assertEqual(record["realisasi_M"], 0.0)
+        self.assertEqual(record["presentase"], 0.0)
 
     def test_parse_tanggal_pengambilan(self):
         self.assertEqual(parse_tanggal_pengambilan("07 Juni 2026"), "2026-06-07")
@@ -41,7 +51,7 @@ class TransformerTests(unittest.TestCase):
         self.assertEqual(record["realisasi_M"], -200.0)
         self.assertEqual(record["presentase"], -40.0)
 
-    def test_deduplicate_records(self):
+    def test_deduplicate_records_preserves_duplicate_rows(self):
         records = [
             {
                 "nama_file": "2026_06csv",
@@ -63,7 +73,7 @@ class TransformerTests(unittest.TestCase):
             },
         ]
         deduplicated = deduplicate_records(records)
-        self.assertEqual(len(deduplicated), 1)
+        self.assertEqual(len(deduplicated), 2)
 
 
 if __name__ == "__main__":

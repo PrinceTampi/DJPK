@@ -20,9 +20,13 @@ MONTH_ALIASES = {
 
 def parse_currency_m(value: str) -> float:
     if not value or not isinstance(value, str):
-        raise ValueError("Currency value is missing or invalid")
+        return 0.0
 
-    match = CURRENCY_PATTERN.search(value)
+    normalized = value.strip()
+    if not normalized or normalized in {"-", "–", "—", "N/A", "n/a", "NA", "na"}:
+        return 0.0
+
+    match = CURRENCY_PATTERN.search(normalized)
     if not match:
         raise ValueError(f"Unable to parse currency value: {value}")
 
@@ -35,9 +39,13 @@ def parse_currency_m(value: str) -> float:
 
 def parse_percentage(value: str) -> float:
     if not value or not isinstance(value, str):
-        raise ValueError("Percentage value is missing or invalid")
+        return 0.0
 
-    match = PERCENTAGE_PATTERN.search(value)
+    normalized = value.strip()
+    if not normalized or normalized in {"-", "–", "—", "N/A", "n/a", "NA", "na"}:
+        return 0.0
+
+    match = PERCENTAGE_PATTERN.search(normalized)
     if not match:
         raise ValueError(f"Unable to parse percentage value: {value}")
 

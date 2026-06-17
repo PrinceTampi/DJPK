@@ -38,17 +38,7 @@ FIXED_SHEET_HEADERS = [
     "Ingestion.Timestamp",
 ]
 FIXED_SHEET_CATEGORIES = [
-   
-    "Belanja Modal",
-    "Belanja Lainnya",
-    "Belanja Bagi Hasil",
-    "Belanja Bantuan Keuangan",
-    "Belanja Bunga",
-    "Belanja Subsidi",
-    "Belanja Hibah",
-    "Belanja Bantuan Sosial",
-    "Belanja Tidak Terduga",
-    "Pembiayaan Daerah", "Pendapatan Daerah",
+    "Pendapatan Daerah",
     "PAD",
     "Pajak Daerah",
     "Retribusi Daerah",
@@ -64,12 +54,21 @@ FIXED_SHEET_CATEGORIES = [
     "Belanja Barang dan Jasa",
     "Belanja Barang dan Jasa",
     "Belanja Modal",
+    "Belanja Modal",
+    "Belanja Lainnya",
+    "Belanja Bagi Hasil",
+    "Belanja Bantuan Keuangan",
+    "Belanja Bunga",
+    "Belanja Subsidi",
+    "Belanja Hibah",
+    "Belanja Bantuan Sosial",
+    "Belanja Tidak Terduga",
+    "Pembiayaan Daerah",
     "Penerimaan Pembiayaan Daerah",
     "Sisa Lebih Perhitungan Anggaran Tahun Sebelumnya",
     "Pengeluaran Pembiayaan Daerah",
     "Penyertaan Modal Daerah",
-    "Pembayaran Cicilan Pokok Utang yang Jatuh Tempo",
-    "Pendapatan Daerah",
+    "Pengeluaran Pembiayaan Lainnya Sesuai dengan Ketentuan Peraturan Perundang-Undangan",
 ]
 PLAYWRIGHT_HEADLESS = os.getenv("PLAYWRIGHT_HEADLESS", "true").strip().lower() in ("1", "true", "yes")
 DEFAULT_USER_AGENT = os.getenv(

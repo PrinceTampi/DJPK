@@ -1,19 +1,19 @@
 from typing import Dict, List
 
-import pandas as pd
-
 from .normalizer import parse_currency_m, parse_percentage
 from .validator import validate_record
 
 
 def build_record(region_name: str, nama_file: str, tanggal_pengambilan: str, raw_row: List[str]) -> Dict[str, object]:
-    if len(raw_row) < 5:
-        raise ValueError("Raw row does not contain enough cells")
+    akun = ""
+    if len(raw_row) > 1 and raw_row[1].strip():
+        akun = raw_row[1].strip()
+    elif raw_row:
+        akun = str(raw_row[0]).strip()
 
-    akun = raw_row[1].strip() if len(raw_row) > 1 and raw_row[1].strip() else raw_row[0].strip()
-    anggaran = parse_currency_m(raw_row[2])
-    realisasi = parse_currency_m(raw_row[3])
-    presentase = parse_percentage(raw_row[4])
+    anggaran = parse_currency_m(raw_row[2] if len(raw_row) > 2 else "")
+    realisasi = parse_currency_m(raw_row[3] if len(raw_row) > 3 else "")
+    presentase = parse_percentage(raw_row[4] if len(raw_row) > 4 else "")
 
     record = {
         "nama_file": nama_file,
@@ -30,14 +30,6 @@ def build_record(region_name: str, nama_file: str, tanggal_pengambilan: str, raw
 
 
 def deduplicate_records(records: List[Dict[str, object]]) -> List[Dict[str, object]]:
-    if not records:
-        return []
-
-    df = pd.DataFrame(records)
-    if df.empty:
-        return []
-
-    df = df.drop_duplicates(
-        subset=["nama_file", "kab_kota", "anggaran_M", "realisasi_M", "presentase", "tanggal_pengambilan"]
-    )
-    return df.to_dict(orient="records")
+    # Preserve all rows from the portal, including duplicate data rows that are
+    # valid and should be kept to match DJPK's reported output exactly.
+    return list(records)
