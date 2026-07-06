@@ -1,5 +1,8 @@
 import argparse
+import json
 from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from config.settings import FIXED_REGIONS, SUMMARY_WORKSHEET
 from services.spreadsheet_service import SpreadsheetService
@@ -8,6 +11,30 @@ from transformer.processor import deduplicate_records
 from utils.logger import get_logger
 
 logger = get_logger()
+
+_STATE_FILE = Path(__file__).resolve().parent / ".last_run.json"
+
+
+def _load_last_run_state() -> dict:
+    """Load the last successful run state from the state file."""
+    if _STATE_FILE.exists():
+        try:
+            with _STATE_FILE.open("r", encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError) as err:
+            logger.warning("Failed to read state file %s: %s", _STATE_FILE, err)
+    return {}
+
+
+def _save_last_run_state(year: int, month: int) -> None:
+    """Persist the last successfully scraped period to the state file."""
+    state = {"last_scraped_year": year, "last_scraped_month": month}
+    try:
+        with _STATE_FILE.open("w", encoding="utf-8") as f:
+            json.dump(state, f)
+        logger.info("State saved: last scraped period %04d-%02d", year, month)
+    except OSError as err:
+        logger.warning("Failed to write state file %s: %s", _STATE_FILE, err)
 
 
 def _validate_region_groups(grouped_records: dict) -> None:
@@ -111,6 +138,15 @@ def _parse_year_month(value: str) -> tuple[int, int]:
     return year, month
 
 
+def _should_run_scrape(now: datetime | None = None) -> bool:
+    if now is None:
+        now = datetime.now(ZoneInfo("Asia/Jakarta"))
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=ZoneInfo("Asia/Jakarta"))
+
+    return now.day == 1 and now.hour == 6 and now.minute == 0 and now.second == 0
+
+
 def _resolve_regions(region_arg: str | None) -> list[dict] | None:
     if not region_arg:
         return None
@@ -132,8 +168,30 @@ def _resolve_regions(region_arg: str | None) -> list[dict] | None:
 
 def run_scrape_and_upload():
     try:
-        logger.info("scraping start")
+        if not _should_run_scrape():
+            logger.info("Skipping scrape: allowed window is tanggal 1 pukul 06:00 WIB")
+            return
+
+        # --- Idempotency guard: skip jika periode ini sudah pernah di-scrape ---
         scraper = APBDScraper()
+        period_month, period_year = scraper._compute_reporting_period()
+
+        state = _load_last_run_state()
+        last_year = state.get("last_scraped_year")
+        last_month = state.get("last_scraped_month")
+
+        if last_year == period_year and last_month == period_month:
+            logger.info(
+                "Skipping scrape: periode %04d-%02d sudah pernah diupload sebelumnya. "
+                "Hapus file %s untuk memaksa re-scrape.",
+                period_year,
+                period_month,
+                _STATE_FILE,
+            )
+            return
+        # --- end guard ---
+
+        logger.info("scraping start")
         scraped_records = scraper.scrape_all_regions()
         records = deduplicate_records(scraped_records)
 
@@ -144,6 +202,9 @@ def run_scrape_and_upload():
         grouped_records = _group_records(records)
         _upload_grouped_records(grouped_records)
         logger.info("total records %d", len(records))
+
+        # Simpan state setelah upload berhasil
+        _save_last_run_state(period_year, period_month)
     except Exception as err:
         logger.exception("scraping failure: %s", err)
         raise

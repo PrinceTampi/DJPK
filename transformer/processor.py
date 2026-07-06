@@ -30,6 +30,16 @@ def build_record(region_name: str, nama_file: str, tanggal_pengambilan: str, raw
 
 
 def deduplicate_records(records: List[Dict[str, object]]) -> List[Dict[str, object]]:
-    # Preserve all rows from the portal, including duplicate data rows that are
-    # valid and should be kept to match DJPK's reported output exactly.
-    return list(records)
+    """Remove duplicate records keyed on (nama_file, akun, kab_kota).
+
+    The DJPK portal may return repeated rows for the same account+region+period
+    triple. This preserves the first occurrence and discards subsequent ones.
+    """
+    seen: set = set()
+    unique: List[Dict[str, object]] = []
+    for record in records:
+        key = (record.get("nama_file"), record.get("akun"), record.get("kab_kota"))
+        if key not in seen:
+            seen.add(key)
+            unique.append(record)
+    return unique

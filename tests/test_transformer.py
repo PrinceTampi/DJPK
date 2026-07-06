@@ -51,7 +51,7 @@ class TransformerTests(unittest.TestCase):
         self.assertEqual(record["realisasi_M"], -200.0)
         self.assertEqual(record["presentase"], -40.0)
 
-    def test_deduplicate_records_preserves_duplicate_rows(self):
+    def test_deduplicate_records_removes_duplicate_rows(self):
         records = [
             {
                 "nama_file": "2026_06csv",
@@ -73,6 +73,32 @@ class TransformerTests(unittest.TestCase):
             },
         ]
         deduplicated = deduplicate_records(records)
+        # Duplicate rows with the same (nama_file, akun, kab_kota) key must be removed.
+        self.assertEqual(len(deduplicated), 1)
+
+    def test_deduplicate_records_preserves_distinct_rows(self):
+        records = [
+            {
+                "nama_file": "2026_06csv",
+                "akun": "Pendapatan Daerah",
+                "anggaran_M": 1.0,
+                "realisasi_M": 1.0,
+                "presentase": 100.0,
+                "tanggal_pengambilan": "2026-06-07",
+                "kab_kota": "Kota Manado",
+            },
+            {
+                "nama_file": "2026_06csv",
+                "akun": "Belanja Daerah",  # different akun
+                "anggaran_M": 2.0,
+                "realisasi_M": 1.5,
+                "presentase": 75.0,
+                "tanggal_pengambilan": "2026-06-07",
+                "kab_kota": "Kota Manado",
+            },
+        ]
+        deduplicated = deduplicate_records(records)
+        # Rows with different akun are distinct and must both be preserved.
         self.assertEqual(len(deduplicated), 2)
 
 

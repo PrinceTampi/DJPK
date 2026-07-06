@@ -4,12 +4,14 @@
 This file is the manual task guide for the AI model. It is intentionally written so the AI can review the current project state and follow strict safety rules before making changes.
 
 ## Current Project State
-- Project is a DJPK APBD scraper that uses Playwright to load the DJPK portal and extract APBD summary data.
+- Project is a DJPK APBD scraper that uses `requests` + `BeautifulSoup` to fetch APBD summary data from the DJPK portal via direct GET requests (Playwright is no longer used).
 - The workflow is:
-  1. Scrape region data in `scraper/apbd_scraper.py`.
+  1. Scrape region data in `scraper/apbd_scraper.py` via HTTP GET.
   2. Normalize and validate records in `transformer/`.
-  3. Deduplicate records in `main.py`.
+  3. Deduplicate records in `transformer/processor.py` (keyed on `nama_file`, `akun`, `kab_kota`).
   4. Upload rows to Google Sheets via `services/spreadsheet_service.py`.
+- Idempotency guard in `main.py` prevents re-scraping an already-uploaded period (backed by `.last_run.json`).
+- Scheduler runs on tanggal 1 each month at 01:00 WIB via APScheduler `CronTrigger(day=1, hour=1, minute=0)`.
 - Logging is captured in `logs/scraper.log`.
 - The environment file `.env` is the configuration source.
 
@@ -41,3 +43,20 @@ This file is the manual task guide for the AI model. It is intentionally written
 - Read this file at the start of each new task.
 - Update the task list manually when the user assigns new priorities.
 - Treat the rules above as binding guidance for all code edits.
+
+---
+
+## Completed Tasks Log
+
+### [2026-07-01] Repetitive Scraping Bug Fix + Code Quality
+- [x] Fixed scheduler trigger: restored `CronTrigger(day=1, hour=1, minute=0)` — was `minute="1"` (ran every hour).
+- [x] Added `misfire_grace_time=3600` to scheduler job to handle server downtime at trigger time.
+- [x] Wrapped `scheduler.start()` in `try/except` for clean shutdown logging.
+- [x] Moved `time.sleep(1)` in `apbd_scraper.py` into a `finally` block to guarantee inter-request spacing.
+- [x] Collapsed duplicate `except APIError` / `except Exception` handlers in `spreadsheet_service.py` into one.
+- [x] Removed unused `APIError` import from `spreadsheet_service.py`.
+- [x] Fixed row dedup key type mismatch in `spreadsheet_service.py`: stringify incoming values before comparison.
+- [x] Added idempotency guard in `main.py` via `.last_run.json` state file.
+- [x] Implemented real `deduplicate_records()` in `processor.py` — previously was a no-op.
+- [x] Updated tests: renamed old dedup test, added `test_deduplicate_records_preserves_distinct_rows`.
+- [x] All 20 tests pass.
