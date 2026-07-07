@@ -1,3 +1,4 @@
+import calendar
 import re
 from datetime import datetime
 
@@ -6,6 +7,7 @@ from config.settings import MONTH_NAMES
 CURRENCY_PATTERN = re.compile(r"([0-9\.\,\-]+)\s*M", re.IGNORECASE)
 PERCENTAGE_PATTERN = re.compile(r"[-+]?[0-9]+(?:\.[0-9]+)?")
 DATE_PATTERN = re.compile(r"(\d{1,2})\s+([A-Za-z\.]+)\s+(\d{4})")
+MONTH_YEAR_PATTERN = re.compile(r"([A-Za-z\.]+)\s+(\d{4})")
 NUMERIC_DMY_PATTERN = re.compile(r"(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})")
 ISO_DATE_PATTERN = re.compile(r"(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})")
 
@@ -76,6 +78,19 @@ def parse_tanggal_pengambilan(raw_date: str) -> str:
         month = int(numeric_match.group(2))
         year = int(numeric_match.group(3))
         return datetime(year=year, month=month, day=day).strftime("%Y-%m-%d")
+
+    # Month-year forms such as "September 2025" (used in the page context)
+    month_year_match = MONTH_YEAR_PATTERN.fullmatch(raw)
+    if month_year_match:
+        month_name = month_year_match.group(1).strip().lower().rstrip('.')
+        year = int(month_year_match.group(2))
+        month_name = MONTH_ALIASES.get(month_name, month_name)
+        month = MONTH_NAMES.get(month_name)
+        if not month:
+            raise ValueError(f"Unknown month name in tanggal pengambilan: {month_name}")
+
+        last_day = calendar.monthrange(year, month)[1]
+        return datetime(year=year, month=month, day=last_day).strftime("%Y-%m-%d")
 
     # Indonesian month names and common abbreviations
     match = DATE_PATTERN.search(raw)

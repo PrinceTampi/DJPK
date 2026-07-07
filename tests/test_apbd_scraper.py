@@ -77,6 +77,28 @@ class APBDScraperTests(unittest.TestCase):
         self.assertEqual(extracted_date, "2025-12-31")
         self.assertTrue(extracted)
 
+    def test_extract_tanggal_pengambilan_prefers_period_context_over_receipt_date(self):
+        scraper = APBDScraper()
+        html = (
+            "<html><body>"
+            "<p>Data APBD Murni, realisasi APBD s.d September 2025, - data diterima SIKD per 05 Juli 2026</p>"
+            "</body></html>"
+        )
+
+        extracted_date, extracted = scraper._extract_tanggal_pengambilan(html, 2025, 9)
+
+        self.assertEqual(extracted_date, "2025-09-30")
+        self.assertTrue(extracted)
+
+    def test_extract_tanggal_pengambilan_rejects_earlier_month_context(self):
+        scraper = APBDScraper()
+        html = "<html><body><p>Data APBD Murni, realisasi APBD s.d September 2025</p></body></html>"
+
+        extracted_date, extracted = scraper._extract_tanggal_pengambilan(html, 2025, 10)
+
+        self.assertEqual(extracted_date, "2025-10-01")
+        self.assertFalse(extracted)
+
     @patch("scraper.apbd_scraper.time.sleep", return_value=None)
     @patch.object(APBDScraper, "_extract_summary_rows")
     @patch.object(APBDScraper, "_fetch_region_html")

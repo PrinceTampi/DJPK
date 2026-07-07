@@ -1,3 +1,4 @@
+import calendar
 import re
 import time
 from datetime import datetime, timedelta
@@ -137,18 +138,46 @@ class APBDScraper:
         soup = BeautifulSoup(html, "html.parser")
         page_text = soup.get_text(separator=" ").strip()
 
-        patterns = [
+        period_patterns = [
+            r"realisasi\s+apbd\s+(?:s\.d|sd)\s+(\d{1,2}\s+[A-Za-z\.]+\s+\d{4})",
+            r"realisasi\s+apbd\s+(?:s\.d|sd)\s+([A-Za-z\.]+)\s+(\d{4})",
+            r"data\s+apbd\s+murni[^\n]*?\s+(?:s\.d|sd)\s+([A-Za-z\.]+)\s+(\d{4})",
+        ]
+
+        for pattern in period_patterns:
+            match = re.search(pattern, page_text, flags=re.IGNORECASE | re.DOTALL)
+            if match:
+                raw_period = match.group(1)
+                if len(match.groups()) > 1:
+                    raw_period = f"{match.group(1)} {match.group(2)}"
+                try:
+                    parsed = parse_tanggal_pengambilan(raw_period)
+                    parsed_dt = datetime.strptime(parsed, "%Y-%m-%d")
+                    if parsed_dt.year == year and parsed_dt.month == month:
+                        return parsed, True
+                except ValueError:
+                    self.logger.warning(
+                        "Could not parse period context '%s' for %04d-%02d",
+                        raw_period,
+                        year,
+                        month,
+                    )
+
+        receipt_patterns = [
             r"data\s+diterima(?:\s+SIKD)?\s+per\s+(\d{1,2}\s+[A-Za-z\.]+\s+\d{4})",
             r"per\s+(\d{1,2}\s+[A-Za-z\.]+\s+\d{4})",
             r"tanggal\s+pengambilan\s*[:\-]?\s*(\d{1,2}\s+[A-Za-z\.]+\s+\d{4})",
         ]
 
-        for pattern in patterns:
+        for pattern in receipt_patterns:
             match = re.search(pattern, page_text, flags=re.IGNORECASE | re.DOTALL)
             if match:
                 raw_date = match.group(1)
                 try:
-                    return parse_tanggal_pengambilan(raw_date), True
+                    parsed = parse_tanggal_pengambilan(raw_date)
+                    parsed_dt = datetime.strptime(parsed, "%Y-%m-%d")
+                    if parsed_dt.year == year and parsed_dt.month == month:
+                        return parsed, True
                 except ValueError:
                     self.logger.warning(
                         "Could not parse tanggal_pengambilan text '%s' for %04d-%02d",
@@ -156,23 +185,6 @@ class APBDScraper:
                         year,
                         month,
                     )
-
-        generic_match = re.search(
-            r"(\d{1,2}\s+[A-Za-z\.]+\s+\d{4})",
-            page_text,
-            flags=re.IGNORECASE,
-        )
-        if generic_match:
-            raw_date = generic_match.group(1)
-            try:
-                return parse_tanggal_pengambilan(raw_date), True
-            except ValueError:
-                self.logger.warning(
-                    "Could not parse generic tanggal_pengambilan text '%s' for %04d-%02d",
-                    raw_date,
-                    year,
-                    month,
-                )
 
         fallback_date = f"{year}-{month:02d}-01"
         self.logger.warning(
