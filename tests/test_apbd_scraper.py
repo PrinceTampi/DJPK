@@ -1,6 +1,8 @@
 import unittest
 from unittest.mock import patch
 
+import requests
+
 from scraper.apbd_scraper import APBDScraper
 
 
@@ -54,6 +56,87 @@ class APBDScraperTests(unittest.TestCase):
             "2025-09-01",
             "2025_09csv",
         )
+
+    def test_extract_summary_rows_accepts_generic_table_class(self):
+        scraper = APBDScraper()
+        html = (
+            "<html><body>"
+            "<table class='table table-striped'>"
+            "<tr><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th></tr>"
+            "<tr><td></td><td>Pendapatan Daerah</td><td>10,00 M</td><td>5,00 M</td><td>50</td></tr>"
+            "<tr><td></td><td>PAD</td><td>2,00 M</td><td>1,00 M</td><td>50</td></tr>"
+            "</table></body></html>"
+        )
+
+        rows = scraper._extract_summary_rows(html)
+
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0][1], "Pendapatan Daerah")
+
+    def test_extract_summary_rows_uses_the_apbd_table_when_multiple_tables_are_present(self):
+        scraper = APBDScraper()
+        html = (
+            "<html><body>"
+            "<table><tr><th>ignored</th></tr></table>"
+            "<table class='table table-striped'>"
+            "<tr><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th></tr>"
+            "<tr><td></td><td>Pendapatan Daerah</td><td>10,00 M</td><td>5,00 M</td><td>50</td></tr>"
+            "</table></body></html>"
+        )
+
+        rows = scraper._extract_summary_rows(html)
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1], "Pendapatan Daerah")
+
+    def test_fetch_region_html_retries_on_server_error(self):
+        class DummyResponse:
+            def __init__(self, status_code: int, text: str) -> None:
+                self.status_code = status_code
+                self.text = text
+
+            def raise_for_status(self) -> None:
+                if self.status_code >= 400:
+                    raise requests.HTTPError(f"{self.status_code} error")
+
+        scraper = APBDScraper()
+        with patch.object(
+            scraper.session,
+            "get",
+            side_effect=[DummyResponse(500, ""), DummyResponse(200, "<table></table>")],
+        ) as mock_get, patch("scraper.apbd_scraper.time.sleep", return_value=None):
+            html = scraper._fetch_region_html("08", 2026, 6)
+
+        self.assertEqual(html, "<table></table>")
+        self.assertEqual(mock_get.call_count, 2)
+
+    @patch("scraper.apbd_scraper.time.sleep", return_value=None)
+    @patch.object(APBDScraper, "_extract_tanggal_pengambilan")
+    @patch.object(APBDScraper, "_extract_summary_rows")
+    @patch.object(APBDScraper, "_fetch_region_html")
+    def test_scrape_region_period_retries_when_table_rows_are_missing(
+        self,
+        mock_fetch_html,
+        mock_extract_rows,
+        mock_extract_date,
+        mock_sleep,
+    ):
+        mock_fetch_html.side_effect = ["<html></html>", "<html></html>"]
+        mock_extract_rows.side_effect = [ValueError("APBD summary table not found"), [["", "Pendapatan Daerah", "1,00 M", "1,00 M", "100"]]]
+        mock_extract_date.return_value = ("2025-09-01", True)
+
+        scraper = APBDScraper()
+        records, tanggal, extracted = scraper._scrape_region_period(
+            2025,
+            9,
+            {"name": "Tomohon", "value": "08"},
+        )
+
+        self.assertEqual(len(records), 1)
+        self.assertEqual(tanggal, "2025-09-01")
+        self.assertTrue(extracted)
+        self.assertEqual(mock_fetch_html.call_count, 2)
+        self.assertEqual(mock_extract_rows.call_count, 2)
 
     def test_extract_tanggal_pengambilan_falls_back_to_period_start(self):
         scraper = APBDScraper()

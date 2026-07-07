@@ -94,38 +94,70 @@ class APBDScraper:
             "pemda": region_value,
         }
         self.logger.debug("Fetching URL params: %s", params)
-        resp = self.session.get(DATA_URL, params=params, timeout=30)
-        resp.raise_for_status()
-        return resp.text
+
+        last_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                resp = self.session.get(DATA_URL, params=params, timeout=30)
+                resp.raise_for_status()
+                return resp.text
+            except requests.RequestException as exc:
+                last_error = exc
+                self.logger.warning(
+                    "Fetch attempt %d failed for region %s %04d-%02d: %s",
+                    attempt + 1,
+                    region_value,
+                    year,
+                    month,
+                    exc,
+                )
+                if attempt < 2:
+                    time.sleep(3 + attempt)
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("Unable to fetch APBD html")
 
     def _extract_summary_rows(self, html: str) -> List[List[str]]:
         soup = BeautifulSoup(html, "html.parser")
-        table = soup.select_one("table.table.tab-primary.table-striped")
-        if not table:
+        tables = soup.select("table")
+        if not tables:
             raise ValueError("APBD summary table not found in HTML response")
 
-        # The DJPK portal generates invalid HTML with nested <tr> inside <tr>.
-        # BeautifulSoup (and most parsers) flatten this into one huge row.
-        # Solution: extract each <tr>...</tr> block directly from the raw table HTML
-        # using regex, then parse each block individually for exactly 5 cells.
-        raw_table_html = str(table)
+        candidate_tables = [
+            table
+            for table in tables
+            if "table" in " ".join(table.get("class", []))
+            or table.select("tr")
+        ]
+        if not candidate_tables:
+            raise ValueError("APBD summary table not found in HTML response")
 
-        # Extract individual <tr> opening tags with their content up to the next <tr
-        # Split by <tr (case-insensitive) boundaries
+        # Prefer the table with the highest number of rows and at least one row that
+        # looks like a real APBD summary row.
+        preferred_table = None
+        for table in candidate_tables:
+            row_count = len(table.select("tr"))
+            if row_count < 2:
+                continue
+            if preferred_table is None or row_count > len(preferred_table.select("tr")):
+                preferred_table = table
+
+        table = preferred_table or candidate_tables[0]
+
+        raw_table_html = str(table)
         tr_blocks = re.split(r'(?i)<tr(?:\s[^>]*)?>', raw_table_html)
 
-        rows = []
+        rows: List[List[str]] = []
         for block in tr_blocks:
-            # Parse just this block to get <td> elements
             block_soup = BeautifulSoup("<table><tr>" + block + "</tr></table>", "html.parser")
-            cells = block_soup.select("td")
+            cells = [cell.get_text(strip=True) for cell in block_soup.select("td")]
             if len(cells) < 5:
                 continue
-            cell_texts = [c.get_text(strip=True) for c in cells[:5]]
-            # Skip rows where no meaningful data exists
-            if all(not v for v in cell_texts):
+
+            cell_texts = cells[:5]
+            if all(not value for value in cell_texts):
                 continue
-            # Skip rows where akun (index 1) is empty
             if not cell_texts[1]:
                 continue
             rows.append(cell_texts)
@@ -221,8 +253,28 @@ class APBDScraper:
         records: List[Dict[str, Any]] = []
 
         self.logger.info("Scraping period %04d-%02d for region %s", year, month, region_name)
-        html = self._fetch_region_html(region_value, year, month)
-        raw_rows = self._extract_summary_rows(html)
+
+        html = ""
+        raw_rows: List[List[str]] = []
+        for attempt in range(3):
+            try:
+                html = self._fetch_region_html(region_value, year, month)
+                raw_rows = self._extract_summary_rows(html)
+                break
+            except ValueError as err:
+                self.logger.warning(
+                    "Attempt %d failed to extract summary rows for region %s %04d-%02d: %s",
+                    attempt + 1,
+                    region_name,
+                    year,
+                    month,
+                    err,
+                )
+                if attempt < 2:
+                    time.sleep(3 + attempt)
+                else:
+                    raise
+
         tanggal_pengambilan, extracted = self._extract_tanggal_pengambilan(html, year, month)
         if not extracted and shared_tanggal_pengambilan is not None:
             self.logger.info(
