@@ -1,8 +1,20 @@
 import unittest
+from datetime import datetime
 from unittest.mock import MagicMock, patch
+from zoneinfo import ZoneInfo
 
 from config.settings import SUMMARY_WORKSHEET
-from main import _upload_grouped_records
+from main import _should_run_scrape, _upload_grouped_records
+
+
+class MainScheduleTests(unittest.TestCase):
+    def test_should_run_scrape_only_on_first_day_at_six_am_wib(self):
+        wib = ZoneInfo("Asia/Jakarta")
+
+        self.assertTrue(_should_run_scrape(datetime(2026, 7, 1, 6, 0, tzinfo=wib)))
+        self.assertFalse(_should_run_scrape(datetime(2026, 7, 1, 5, 59, tzinfo=wib)))
+        self.assertFalse(_should_run_scrape(datetime(2026, 7, 1, 6, 1, tzinfo=wib)))
+        self.assertFalse(_should_run_scrape(datetime(2026, 7, 2, 6, 0, tzinfo=wib)))
 
 
 class MainUploadTests(unittest.TestCase):

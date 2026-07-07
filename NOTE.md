@@ -4,6 +4,8 @@
 - Big update executed: every region now uploads to its own worksheet with fixed headers and an ingestion timestamp.
 - Added historical scraping support and CLI flags for `--history-start`, `--history-end`, and `--regions`.
 - Duplicate prevention is now applied by exact row match, and worksheet expansion is handled automatically.
+- **[2026-07-01]** Fixed repetitive scraping bug: scheduler trigger restored to `day=1`, idempotency guard added, real deduplication implemented.
+- **[2026-07-01]** Code quality fixes applied to `spreadsheet_service.py`, `apbd_scraper.py`, and `scheduler.py` — see Recent changes below.
 
 ## What I understand now
 - The current scraper pipeline collects rows for each region, normalizes and validates them, then groups them by `kab_kota`.
@@ -33,6 +35,25 @@
 - Updated upload logic so only real region worksheets are written and sent to `APBD Kab_kota`.
 - Improved Google Sheets quota behavior by reusing worksheet values during header validation and duplicate filtering.
 - Added tests to protect against `Semua Pemda` being included in uploads.
+
+### [2026-07-01] Bug-fix & Code Quality Session
+- **`scheduler/scheduler.py`**:
+  - Restored correct cron trigger: `CronTrigger(day=1, hour=1, minute=0)` — previously was `minute="1"` (ran every hour).
+  - Removed redundant `timezone` argument from `CronTrigger` (already set on `BlockingScheduler`).
+  - Added `misfire_grace_time=3600` — if server was offline at 01:00, the job still fires within the hour window.
+  - Wrapped `scheduler.start()` in `try/except (KeyboardInterrupt, SystemExit)` to log clean shutdown.
+- **`scraper/apbd_scraper.py`**:
+  - Moved `time.sleep(1)` from after the `try/except` block into a `finally` clause — ensures exactly one sleep per region regardless of success or failure.
+- **`services/spreadsheet_service.py`**:
+  - Removed duplicate `except APIError` handler (was identical to `except Exception`; `APIError` is a subclass of `Exception`). Collapsed into one handler.
+  - Removed now-unused `APIError` import.
+  - Fixed row dedup key comparison: incoming numeric values (e.g. `1.0`) are now stringified via `str(v)` before comparing against sheet string values — prevents silent dedup failures.
+- **`main.py`** (from previous session):
+  - Added `_load_last_run_state()` / `_save_last_run_state()` backed by `.last_run.json`.
+  - Added idempotency guard in `run_scrape_and_upload()`: skips scrape if same `(year, month)` was already completed.
+- **`transformer/processor.py`** (from previous session):
+  - Implemented real `deduplicate_records()` keyed on `(nama_file, akun, kab_kota)` — previously was a no-op.
+- **Tests**: 20/20 pass. Updated `test_transformer.py` to assert correct dedup behavior.
 
 ## Next update task
 - implement region-specific worksheet selection and row grouping once the example format is confirmed

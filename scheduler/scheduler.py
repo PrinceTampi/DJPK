@@ -16,6 +16,8 @@ logger = get_logger()
 
 def schedule_monthly_job() -> None:
     scheduler = BlockingScheduler(timezone="Asia/Jakarta")
+    # Placeholder scheduler kept for Dokploy compatibility.
+    # Dokploy handles the actual cron execution externally.
     trigger = CronTrigger(day=1, hour=6, minute=0)
     scheduler.add_job(
         lambda: print(""),

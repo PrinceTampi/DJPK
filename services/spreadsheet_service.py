@@ -1,7 +1,7 @@
 import time
 
 import gspread
-from gspread.exceptions import APIError, WorksheetNotFound
+from gspread.exceptions import WorksheetNotFound
 from google.oauth2.service_account import Credentials
 
 from config.settings import (
@@ -29,7 +29,7 @@ class SpreadsheetService:
 
         sheet_id = self._normalize_sheet_id(GOOGLE_SHEET_ID)
         credentials = Credentials.from_service_account_file(GOOGLE_CREDENTIAL_PATH, scopes=SCOPES)
-        self.client = gspread.authorize(credentials)
+        self.client = gspread.Client(auth=credentials)
         self.spreadsheet = self.client.open_by_key(sheet_id)
         self._worksheet_cache = {
             worksheet.title: worksheet for worksheet in self.spreadsheet.worksheets()
@@ -108,27 +108,42 @@ class SpreadsheetService:
         values = self._load_worksheet_values(worksheet)
         self._ensure_headers(worksheet, values)
 
+        # Filter out rows that already exist in the sheet.
+        # Compare on all columns except the last (ingestion_timestamp) to avoid
+        # false mismatches due to timestamp differences across runs.
+        existing_keys: set = set()
+        for existing_row in values[1:]:  # skip header
+            if existing_row:
+                key = tuple(existing_row[:-1])  # exclude last column (ingestion_timestamp)
+                existing_keys.add(key)
+
+        new_rows = [row for row in rows if tuple(str(v) for v in row[:-1]) not in existing_keys]
+
+        if not new_rows:
+            self.logger.info(
+                "All %d rows already exist in worksheet %s — skipping upload",
+                len(rows),
+                target_title,
+            )
+            return
+
+        if len(new_rows) < len(rows):
+            self.logger.info(
+                "Filtered %d duplicate row(s) from %d total rows for worksheet %s",
+                len(rows) - len(new_rows),
+                len(rows),
+                target_title,
+            )
+
         for attempt in range(1, RETRY_COUNT + 1):
             try:
-                worksheet.append_rows(rows, value_input_option="USER_ENTERED")
+                worksheet.append_rows(new_rows, value_input_option="USER_ENTERED")
                 self.logger.info(
                     "upload success: %d rows appended to worksheet %s",
-                    len(rows),
+                    len(new_rows),
                     worksheet.title,
                 )
                 return
-            except APIError as err:
-                self.logger.error(
-                    "Upload attempt %d failed for worksheet %s: %s",
-                    attempt,
-                    worksheet.title,
-                    err,
-                )
-                if attempt == RETRY_COUNT:
-                    self.logger.error("upload failure after %d attempts", RETRY_COUNT)
-                    raise
-                self._expand_worksheet_rows(worksheet)
-                time.sleep(RETRY_DELAY_SECONDS)
             except Exception as err:
                 self.logger.error(
                     "Upload attempt %d failed for worksheet %s: %s",

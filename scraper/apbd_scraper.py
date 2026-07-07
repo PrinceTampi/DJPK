@@ -302,7 +302,8 @@ class APBDScraper:
                         month,
                         err,
                     )
-                time.sleep(1)
+                finally:
+                    time.sleep(1)
 
         return records
 
