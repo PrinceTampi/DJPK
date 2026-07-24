@@ -139,7 +139,7 @@ def _should_run_scrape(now: datetime | None = None) -> bool:
     if now.tzinfo is None:
         now = now.replace(tzinfo=ZoneInfo("Asia/Jakarta"))
 
-    return now.day == 1 and now.hour == 6 and now.minute == 0 and now.second == 0
+    return now.day == 1 and now.hour == 0 and now.minute == 0 and now.second == 0
 
 
 def _resolve_regions(region_arg: str | None) -> list[dict] | None:
@@ -164,7 +164,7 @@ def _resolve_regions(region_arg: str | None) -> list[dict] | None:
 def run_scrape_and_upload():
     try:
         if not _should_run_scrape():
-            logger.info("Skipping scrape: allowed window is tanggal 1 pukul 06:00 WIB")
+            logger.info("Skipping scrape: allowed window is tanggal 1 pukul 00:00 WIB")
             return
 
         # --- Idempotency guard: skip jika periode ini sudah pernah di-scrape ---

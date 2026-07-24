@@ -8,13 +8,13 @@ from main import _should_run_scrape, _upload_grouped_records, _group_records
 
 
 class MainScheduleTests(unittest.TestCase):
-    def test_should_run_scrape_only_on_first_day_at_six_am_wib(self):
+    def test_should_run_scrape_only_on_first_day_at_midnight_wib(self):
         wib = ZoneInfo("Asia/Jakarta")
 
-        self.assertTrue(_should_run_scrape(datetime(2026, 7, 1, 6, 0, tzinfo=wib)))
-        self.assertFalse(_should_run_scrape(datetime(2026, 7, 1, 5, 59, tzinfo=wib)))
-        self.assertFalse(_should_run_scrape(datetime(2026, 7, 1, 6, 1, tzinfo=wib)))
-        self.assertFalse(_should_run_scrape(datetime(2026, 7, 2, 6, 0, tzinfo=wib)))
+        self.assertTrue(_should_run_scrape(datetime(2026, 7, 1, 0, 0, tzinfo=wib)))
+        self.assertFalse(_should_run_scrape(datetime(2026, 7, 1, 0, 1, tzinfo=wib)))
+        self.assertFalse(_should_run_scrape(datetime(2026, 7, 1, 6, 0, tzinfo=wib)))
+        self.assertFalse(_should_run_scrape(datetime(2026, 7, 2, 0, 0, tzinfo=wib)))
 
 
 class GroupRecordsTests(unittest.TestCase):
