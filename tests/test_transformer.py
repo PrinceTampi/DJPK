@@ -1,6 +1,12 @@
 import unittest
 
-from transformer.normalizer import parse_currency_m, parse_percentage, parse_tanggal_pengambilan
+from transformer.normalizer import (
+    normalize_currency_string,
+    normalize_percentage_string,
+    parse_currency_m,
+    parse_percentage,
+    parse_tanggal_pengambilan,
+)
 from transformer.processor import build_record, deduplicate_records
 
 
@@ -100,6 +106,45 @@ class TransformerTests(unittest.TestCase):
         deduplicated = deduplicate_records(records)
         # Rows with different akun are distinct and must both be preserved.
         self.assertEqual(len(deduplicated), 2)
+
+
+class NormalizerStringTests(unittest.TestCase):
+    def test_normalize_currency_string_replaces_comma_preserves_thousands_dots(self):
+        """10.590,90 M -> 10.590.90 (comma becomes dot, thousands dots stay)."""
+        self.assertEqual(normalize_currency_string("10.590,90 M"), "10.590.90")
+        self.assertEqual(normalize_currency_string("1.188.016,96 M"), "1.188.016.96")
+        self.assertEqual(normalize_currency_string("0,00 M"), "0.00")
+
+    def test_normalize_currency_string_negative(self):
+        self.assertEqual(normalize_currency_string("-500,00 M"), "-500.00")
+
+    def test_normalize_currency_string_empty_and_dash(self):
+        self.assertEqual(normalize_currency_string(""), "0")
+        self.assertEqual(normalize_currency_string("-"), "0")
+        self.assertEqual(normalize_currency_string("N/A"), "0")
+
+    def test_normalize_percentage_string_replaces_comma(self):
+        self.assertEqual(normalize_percentage_string("30,43"), "30.43")
+        self.assertEqual(normalize_percentage_string("30.43"), "30.43")  # already dot
+        self.assertEqual(normalize_percentage_string("-"), "0")
+        self.assertEqual(normalize_percentage_string(""), "0")
+
+    def test_build_record_populates_raw_fields(self):
+        """build_record must store normalized raw strings alongside parsed floats."""
+        raw_row = ["", "Pendapatan Daerah", "10.590,90 M", "5.000,00 M", "47,19"]
+        record = build_record("Kota Manado", "2026_06csv", "2026-06-07", raw_row)
+
+        # Raw fields: comma replaced with dot, thousands dots preserved
+        self.assertEqual(record["anggaran_raw"], "10.590.90")
+        self.assertEqual(record["realisasi_raw"], "5.000.00")
+        self.assertEqual(record["presentase_raw"], "47.19")
+
+        # Parsed float fields still work for internal use
+        self.assertAlmostEqual(record["anggaran_M"], 10590.90)
+        self.assertAlmostEqual(record["realisasi_M"], 5000.00)
+        # Note: parse_percentage reads digits up to ',' so '47,19' → 47.0 (float).
+        # The raw field '47.19' is what gets written to the sheet.
+        self.assertAlmostEqual(record["presentase"], 47.0)
 
 
 if __name__ == "__main__":

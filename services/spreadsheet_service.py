@@ -137,7 +137,7 @@ class SpreadsheetService:
 
         for attempt in range(1, RETRY_COUNT + 1):
             try:
-                worksheet.append_rows(new_rows, value_input_option="USER_ENTERED")
+                worksheet.append_rows(new_rows, value_input_option="RAW")
                 self.logger.info(
                     "upload success: %d rows appended to worksheet %s",
                     len(new_rows),

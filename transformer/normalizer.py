@@ -39,6 +39,42 @@ def parse_currency_m(value: str) -> float:
         raise ValueError(f"Unable to convert currency value to float: {value}") from err
 
 
+def normalize_currency_string(value: str) -> str:
+    """Extract the number part from an Indonesian currency string and replace ',' with '.'.
+
+    Preserves thousands dots so that '10.590,90 M' becomes '10.590.90'.
+    Returns '0' for empty/null/dash values.
+    """
+    if not value or not isinstance(value, str):
+        return "0"
+
+    normalized = value.strip()
+    if not normalized or normalized in {"-", "–", "—", "N/A", "n/a", "NA", "na"}:
+        return "0"
+
+    match = CURRENCY_PATTERN.search(normalized)
+    if match:
+        return match.group(1).replace(",", ".")
+    # Fallback: just replace comma with dot on whatever is there
+    return normalized.replace(",", ".")
+
+
+def normalize_percentage_string(value: str) -> str:
+    """Normalize a percentage string by replacing ',' with '.'.
+
+    Returns '0' for empty/null/dash values.
+    """
+    if not value or not isinstance(value, str):
+        return "0"
+
+    normalized = value.strip()
+    if not normalized or normalized in {"-", "–", "—", "N/A", "n/a", "NA", "na"}:
+        return "0"
+
+    return normalized.replace(",", ".")
+
+
+
 def parse_percentage(value: str) -> float:
     if not value or not isinstance(value, str):
         return 0.0

@@ -1,6 +1,6 @@
 import argparse
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -71,16 +71,16 @@ def _validate_region_groups(grouped_records: dict) -> None:
 
 def _group_records(records: list[dict]) -> dict:
     grouped_records = {}
-    ingestion_timestamp = datetime.utcnow().replace(microsecond=0).isoformat()
+    ingestion_timestamp = datetime.now(UTC).replace(microsecond=0).isoformat()
     for record in records:
         region_name = record["kab_kota"]
         grouped_records.setdefault(region_name, []).append(
             [
                 record["nama_file"],
                 record["akun"],
-                record["anggaran_M"],
-                record["realisasi_M"],
-                record["presentase"],
+                record["anggaran_raw"],
+                record["realisasi_raw"],
+                record["presentase_raw"],
                 record["tanggal_pengambilan"],
                 record["kab_kota"],
                 ingestion_timestamp,
@@ -88,9 +88,6 @@ def _group_records(records: list[dict]) -> dict:
         )
     return grouped_records
 
-
-def _is_excluded_region(region_name: str) -> bool:
-    return region_name.strip().lower() == "semua pemda"
 
 
 def _upload_grouped_records(grouped_records: dict) -> None:
@@ -104,14 +101,12 @@ def _upload_grouped_records(grouped_records: dict) -> None:
     total_rows = 0
     all_rows = []
     for region_name, rows in grouped_records.items():
-        if _is_excluded_region(region_name):
-            logger.info("Skipping excluded region %s", region_name)
-            continue
-
         service.append_rows(rows, worksheet_title=region_name)
         total_rows += len(rows)
-        all_rows.extend(rows)
         logger.info("uploaded %d rows to worksheet %s", len(rows), region_name)
+        # Semua Pemda is an aggregate view; exclude from the summary sheet
+        if region_name.strip().lower() != "semua pemda":
+            all_rows.extend(rows)
 
     if all_rows:
         service.append_rows(all_rows, worksheet_title=SUMMARY_WORKSHEET)

@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from .normalizer import parse_currency_m, parse_percentage
+from .normalizer import normalize_currency_string, normalize_percentage_string, parse_currency_m, parse_percentage
 from .validator import validate_record
 
 
@@ -15,12 +15,19 @@ def build_record(region_name: str, nama_file: str, tanggal_pengambilan: str, raw
     realisasi = parse_currency_m(raw_row[3] if len(raw_row) > 3 else "")
     presentase = parse_percentage(raw_row[4] if len(raw_row) > 4 else "")
 
+    anggaran_raw = normalize_currency_string(raw_row[2] if len(raw_row) > 2 else "")
+    realisasi_raw = normalize_currency_string(raw_row[3] if len(raw_row) > 3 else "")
+    presentase_raw = normalize_percentage_string(raw_row[4] if len(raw_row) > 4 else "")
+
     record = {
         "nama_file": nama_file,
         "akun": akun,
         "anggaran_M": anggaran,
         "realisasi_M": realisasi,
         "presentase": presentase,
+        "anggaran_raw": anggaran_raw,
+        "realisasi_raw": realisasi_raw,
+        "presentase_raw": presentase_raw,
         "tanggal_pengambilan": tanggal_pengambilan,
         "kab_kota": region_name,
     }
