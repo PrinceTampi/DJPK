@@ -6,9 +6,12 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
+# pyrefly: ignore [missing-import]
 from apscheduler.schedulers.blocking import BlockingScheduler  # noqa: E402
+# pyrefly: ignore [missing-import]
 from apscheduler.triggers.cron import CronTrigger  # noqa: E402
 
+from main import run_scrape_and_upload  # noqa: E402
 from utils.logger import get_logger  # noqa: E402
 
 logger = get_logger()
@@ -16,16 +19,15 @@ logger = get_logger()
 
 def schedule_monthly_job() -> None:
     scheduler = BlockingScheduler(timezone="Asia/Jakarta")
-    # Placeholder scheduler kept for Dokploy compatibility.
-    # Dokploy handles the actual cron execution externally.
     trigger = CronTrigger(day=1, hour=6, minute=0)
     scheduler.add_job(
-        lambda: print(""),
+        run_scrape_and_upload,
         trigger,
         id="apbd_monthly_job",
         replace_existing=True,
         misfire_grace_time=3600,
     )
+    #this just a place holder for the docker storage
     logger.info("Registered scheduler job: tanggal 1 setiap bulan pukul 06:00 WIB (cron: 0 6 1 * *)")
     try:
         scheduler.start()

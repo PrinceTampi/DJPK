@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Tuple
 
 import requests
+# pyrefly: ignore [missing-import]
 from bs4 import BeautifulSoup
 
 from config.settings import (
