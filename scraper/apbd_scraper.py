@@ -128,7 +128,10 @@ class APBDScraper:
         candidate_tables = [
             table
             for table in tables
-            if "table" in " ".join(table.get("class", []))
+            if (
+                isinstance(table.get("class"), list)
+                and "table" in " ".join(str(value) for value in table["class"])
+            )
             or table.select("tr")
         ]
         if not candidate_tables:
