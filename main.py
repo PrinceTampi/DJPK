@@ -139,7 +139,7 @@ def _should_run_scrape(now: datetime | None = None) -> bool:
     if now.tzinfo is None:
         now = now.replace(tzinfo=ZoneInfo("Asia/Jakarta"))
 
-    return now.day == 1
+    return now.day == 1 and now.hour == 0 and now.minute == 0
 
 
 def _resolve_regions(region_arg: str | None) -> list[dict] | None:
